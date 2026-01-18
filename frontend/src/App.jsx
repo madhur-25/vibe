@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Users, MessageCircle, LogOut, User, Paperclip, Image, FileText, X, Lock, Sparkles } from 'lucide-react';
 
-
+// --- LOGIC SECTION ---
 class EnhancedSocketSimulator {
   constructor() {
     this.listeners = {};
@@ -73,6 +73,7 @@ export default function EnhancedChatApp() {
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
 
+ //single msg
   useEffect(() => {
     socket.on('message', (msg) => setMessages(prev => [...prev, msg]));
     socket.on('userJoined', (data) => {
@@ -103,6 +104,11 @@ export default function EnhancedChatApp() {
     socket.on('reactionUpdate', (data) => {
       setReactions(prev => ({ ...prev, [data.messageId]: data.reactions }));
     });
+
+    // Cleanup function: to prevent multiple msg semdng
+    return () => {
+      socket.listeners = {};
+    };
   }, [username, userId]);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -140,11 +146,10 @@ export default function EnhancedChatApp() {
   const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const handleKeyPress = (e, action) => { if (e.key === 'Enter') { e.preventDefault(); action(); } };
 
-  // --- UI SECTION: GREY AESTHETIC REWRITE ---
+  // --- UI SECTION: GREY AESTHETIC ---
   if (!isJoined) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-6 font-sans selection:bg-zinc-500/30">
-        {/* Subtle Grey Blobs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-zinc-500/5 rounded-full blur-[120px] animate-pulse"></div>
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-zinc-500/5 rounded-full blur-[120px]"></div>
         
@@ -284,19 +289,10 @@ export default function EnhancedChatApp() {
           </div>
         )}
 
-        {/* Input */}
+        {/* Input Area */}
         <div className="p-10 pt-0">
-          {showFilePreview && (
-            <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between animate-in slide-in-from-bottom-2">
-              <div className="flex items-center gap-3">
-                <Paperclip className="w-4 h-4 text-zinc-400" />
-                <span className="text-xs text-zinc-100 font-bold truncate max-w-[200px]">{selectedFile?.name}</span>
-              </div>
-              <button onClick={() => setShowFilePreview(false)} className="text-zinc-500 hover:text-zinc-100"><X className="w-4 h-4" /></button>
-            </div>
-          )}
           <div className="relative group">
-            <div className="relative flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl transition-all focus-within:border-zinc-500 shadow-2xl">
+            <div className="relative flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl shadow-2xl">
               <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-500 hover:text-zinc-100 transition-colors">
                 <Paperclip className="w-5 h-5" />
               </button>
@@ -310,8 +306,7 @@ export default function EnhancedChatApp() {
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!message.trim() && !selectedFile}
-                className="bg-zinc-100 text-black p-3.5 rounded-xl hover:bg-zinc-200 transition-all disabled:opacity-10 shadow-lg"
+                className="bg-zinc-100 text-black p-3.5 rounded-xl hover:bg-zinc-200 transition-all shadow-lg"
               >
                 <Send className="w-5 h-5" />
               </button>
