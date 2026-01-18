@@ -1,4 +1,9 @@
+
 // server.js 
+const User = require('./models/User');
+const Message = require('./models/Message');
+const Room = require('./models/Room');
+const DirectMessage = require('./models/DirectMessage');
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
