@@ -166,9 +166,12 @@ io.on('connection', (socket) => {
       });
       
       // Get current online users in room
-      const roomUsers = Array.from(onlineUsers.values())
-        .filter(u => u.roomId === roomId)
-        .map(u => u.username);
+    const roomUsers = Array.from(onlineUsers.values())
+  .filter(u => u.roomId === roomId)
+  .map(u => ({ 
+    userId: u.userId, 
+    username: u.username 
+  })); 
       
       // Emit to all users in room
       io.to(roomId).emit('userJoined', {
