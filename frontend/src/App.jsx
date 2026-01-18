@@ -1,0 +1,326 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, Users, MessageCircle, LogOut, User, Paperclip, Image, FileText, X, Lock, Sparkles } from 'lucide-react';
+
+// --- LOGIC SECTION: TOUCHING NOTHING HERE AS REQUESTED ---
+class EnhancedSocketSimulator {
+  constructor() {
+    this.listeners = {};
+    this.users = new Map();
+    this.messages = [];
+    this.privateMessages = new Map();
+    this.messageId = 0;
+  }
+  on(event, callback) {
+    if (!this.listeners[event]) this.listeners[event] = [];
+    this.listeners[event].push(callback);
+  }
+  emit(event, data) {
+    setTimeout(() => {
+      if (event === 'join') {
+        this.users.set(data.userId, { username: data.username, status: 'online' });
+        this.trigger('userJoined', {
+          username: data.username,
+          userId: data.userId,
+          onlineUsers: Array.from(this.users.entries()).map(([id, u]) => ({ userId: id, username: u.username, status: u.status }))
+        });
+      } else if (event === 'message') {
+        const msg = { id: this.messageId++, ...data, timestamp: new Date().toISOString() };
+        this.messages.push(msg);
+        this.trigger('message', msg);
+      } else if (event === 'fileMessage') {
+        const msg = { id: this.messageId++, ...data, type: 'file', timestamp: new Date().toISOString() };
+        this.messages.push(msg);
+        this.trigger('message', msg);
+      } else if (event === 'privateMessage') {
+        const msg = { id: this.messageId++, fromUserId: data.fromUserId, fromUsername: data.fromUsername, toUserId: data.toUserId, text: data.text, type: 'private', timestamp: new Date().toISOString() };
+        const key = [data.fromUserId, data.toUserId].sort().join('-');
+        if (!this.privateMessages.has(key)) this.privateMessages.set(key, []);
+        this.privateMessages.get(key).push(msg);
+        this.trigger('privateMessage', msg);
+      } else if (event === 'typing') {
+        this.trigger('userTyping', data);
+      } else if (event === 'disconnect') {
+        this.users.delete(data.userId);
+        this.trigger('userLeft', {
+          username: data.username,
+          onlineUsers: Array.from(this.users.entries()).map(([id, u]) => ({ userId: id, username: u.username, status: u.status }))
+        });
+      } else if (event === 'reaction') {
+        this.trigger('reactionUpdate', { messageId: data.messageId, reactions: data.reactions });
+      }
+    }, 100);
+  }
+  trigger(event, data) {
+    if (this.listeners[event]) this.listeners[event].forEach(callback => callback(data));
+  }
+}
+
+const socket = new EnhancedSocketSimulator();
+
+export default function EnhancedChatApp() {
+  const [username, setUsername] = useState('');
+  const [isJoined, setIsJoined] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [typingUsers, setTypingUsers] = useState(new Set());
+  const [userId] = useState(() => Math.random().toString(36).substr(2, 9));
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showFilePreview, setShowFilePreview] = useState(false);
+  const [privateMessageUser, setPrivateMessageUser] = useState(null);
+  const [reactions, setReactions] = useState({});
+  const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    socket.on('message', (msg) => setMessages(prev => [...prev, msg]));
+    socket.on('userJoined', (data) => {
+      setOnlineUsers(data.onlineUsers);
+      if (data.username !== username) {
+        setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} stepped into the vibe`, timestamp: new Date().toISOString() }]);
+      }
+    });
+    socket.on('userLeft', (data) => {
+      setOnlineUsers(data.onlineUsers);
+      setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} left the space`, timestamp: new Date().toISOString() }]);
+    });
+    socket.on('userTyping', (data) => {
+      if (data.userId !== userId) {
+        setTypingUsers(prev => new Set(prev).add(data.username));
+        setTimeout(() => setTypingUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(data.username);
+          return newSet;
+        }), 3000);
+      }
+    });
+    socket.on('privateMessage', (msg) => {
+      if (msg.toUserId === userId || msg.fromUserId === userId) {
+        setMessages(prev => [...prev, { ...msg, type: 'private', text: `🔒 ${msg.text}` }]);
+      }
+    });
+    socket.on('reactionUpdate', (data) => {
+      setReactions(prev => ({ ...prev, [data.messageId]: data.reactions }));
+    });
+  }, [username, userId]);
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const handleJoin = () => { if (username.trim()) { socket.emit('join', { username: username.trim(), userId }); setIsJoined(true); } };
+  const handleSendMessage = () => {
+    if (selectedFile) handleFileUpload();
+    else if (message.trim()) {
+      if (privateMessageUser) socket.emit('privateMessage', { fromUserId: userId, fromUsername: username, toUserId: privateMessageUser.userId, text: message.trim() });
+      else socket.emit('message', { username, userId, text: message.trim(), type: 'user' });
+      setMessage('');
+    }
+  };
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file && file.size <= 10 * 1024 * 1024) { setSelectedFile(file); setShowFilePreview(true); }
+    else if (file) alert('File too large (Max 10MB)');
+  };
+  const handleFileUpload = () => {
+    if (!selectedFile) return;
+    socket.emit('fileMessage', { username, userId, fileUrl: URL.createObjectURL(selectedFile), filename: selectedFile.name, fileType: selectedFile.type, text: selectedFile.name });
+    setSelectedFile(null); setShowFilePreview(false);
+  };
+  const handleReaction = (messageId, emoji) => {
+    const current = reactions[messageId] || [];
+    const exists = current.find(r => r.userId === userId && r.emoji === emoji);
+    const newR = exists ? current.filter(r => !(r.userId === userId && r.emoji === emoji)) : [...current, { userId, emoji }];
+    socket.emit('reaction', { messageId, emoji, userId, reactions: newR });
+  };
+  const handleTyping = () => {
+    socket.emit('typing', { username, userId });
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {}, 1000);
+  };
+  const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleKeyPress = (e, action) => { if (e.key === 'Enter') { e.preventDefault(); action(); } };
+
+  // --- UI SECTION: THE AESTHETIC REWRITE ---
+  if (!isJoined) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans selection:bg-violet-500/30">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[120px]"></div>
+        
+        <div className="relative w-full max-w-[400px] backdrop-blur-2xl bg-white/[0.02] border border-white/10 p-10 rounded-[2.5rem] shadow-2xl">
+          <div className="flex flex-col items-center mb-10">
+            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/40 mb-6 rotate-3">
+              <Sparkles className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-5xl font-black text-white tracking-tighter mb-2">vibe.</h1>
+            <p className="text-slate-400 font-medium">unfiltered connection.</p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyPress={(e) => handleKeyPress(e, handleJoin)}
+              placeholder="What's your alias?"
+              className="w-full bg-white/[0.03] border border-white/10 px-6 py-4 rounded-2xl text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all text-center text-lg"
+            />
+            <button
+              onClick={handleJoin}
+              className="w-full bg-white text-black py-4 rounded-2xl font-bold text-lg hover:bg-violet-500 hover:text-white transition-all duration-500 active:scale-95 shadow-xl"
+            >
+              Enter the space
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-screen bg-[#020617] flex overflow-hidden font-sans text-slate-200">
+      <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" className="hidden" />
+
+      {/* Sidebar */}
+      <div className="w-80 bg-white/[0.01] border-r border-white/5 flex flex-col backdrop-blur-3xl">
+        <div className="p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tighter text-white">vibe.</h2>
+          </div>
+          
+          <div className="bg-white/[0.03] border border-white/5 p-4 rounded-2xl flex items-center gap-3">
+            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-violet-400 font-bold">
+              {username.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white leading-none">{username}</p>
+              <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">Active Now</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Online Users</h3>
+            <span className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold">{onlineUsers.length}</span>
+          </div>
+          <div className="space-y-2">
+            {onlineUsers.map((user, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.03] transition-all cursor-pointer group">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white">{user.username}</span>
+                </div>
+                {user.userId !== userId && (
+                  <button onClick={() => setPrivateMessageUser(user)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Lock className="w-4 h-4 text-slate-500 hover:text-violet-400" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* --- YOUR NAME LINE --- */}
+        <div className="p-6 border-t border-white/5">
+          <p className="text-[10px] text-center text-slate-600 mb-4 tracking-tight">
+            Designed for <span className="text-violet-500 font-bold">vibe.</span> by <span className="text-slate-300">Madhur Kaushik</span>
+          </p>
+          <button onClick={() => setIsJoined(false)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-slate-400 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all border border-white/5">
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm font-bold">Disconnect</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col relative bg-[#020617]">
+        {/* Header */}
+        <div className="h-24 flex items-center justify-between px-10 border-b border-white/5 backdrop-blur-md bg-[#020617]/50 z-10">
+          <div>
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              {privateMessageUser ? `🔒 Direct: ${privateMessageUser.username}` : 'General Space'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">End-to-end encrypted vibe</p>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6">
+          {messages.map((msg) => {
+            if (msg.type === 'system') return (
+              <div key={msg.id} className="flex justify-center"><span className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">{msg.text}</span></div>
+            );
+            const isOwn = msg.userId === userId;
+            return (
+              <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
+                  {!isOwn && <p className="text-[10px] font-bold text-slate-500 mb-2 ml-1 uppercase tracking-tighter">{msg.username}</p>}
+                  <div className={`relative px-5 py-3 rounded-2xl ${isOwn ? 'bg-violet-600 text-white rounded-tr-none shadow-xl shadow-violet-600/10' : 'bg-slate-900 text-slate-200 rounded-tl-none border border-white/5'}`}>
+                    {msg.type === 'file' ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 p-2 bg-black/20 rounded-lg">
+                          <FileText className="w-5 h-5" />
+                          <span className="text-xs truncate max-w-[150px]">{msg.text}</span>
+                        </div>
+                        {msg.fileType?.startsWith('image/') && <img src={msg.fileUrl} className="max-w-full rounded-lg shadow-inner" alt="upload" />}
+                      </div>
+                    ) : <p className="text-[15px] leading-relaxed">{msg.text}</p>}
+                    <p className={`text-[9px] mt-2 font-medium opacity-40 ${isOwn ? 'text-right' : 'text-left'}`}>{formatTime(msg.timestamp)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Typing Indicator */}
+        {typingUsers.size > 0 && (
+          <div className="absolute bottom-28 left-10 flex items-center gap-2 text-[10px] font-bold text-violet-400 uppercase tracking-widest bg-violet-400/5 px-4 py-2 rounded-full border border-violet-400/10 animate-pulse">
+            {Array.from(typingUsers).join(', ')} is typing
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="p-10 pt-0">
+          {showFilePreview && (
+            <div className="mb-4 p-4 bg-violet-600/10 border border-violet-600/20 rounded-2xl flex items-center justify-between animate-in zoom-in-95">
+              <div className="flex items-center gap-3">
+                <Paperclip className="w-5 h-5 text-violet-400" />
+                <span className="text-sm text-violet-200 font-medium truncate max-w-[200px]">{selectedFile?.name}</span>
+              </div>
+              <button onClick={() => setShowFilePreview(false)} className="text-violet-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+          )}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-[2rem] blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+            <div className="relative flex items-center gap-4 bg-slate-900 border border-white/10 p-2 rounded-[1.8rem]">
+              <button onClick={() => fileInputRef.current?.click()} className="p-4 text-slate-500 hover:text-violet-400 transition-colors">
+                <Paperclip className="w-6 h-6" />
+              </button>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => { setMessage(e.target.value); handleTyping(); }}
+                onKeyPress={(e) => handleKeyPress(e, handleSendMessage)}
+                placeholder={privateMessageUser ? `Whisper to ${privateMessageUser.username}...` : "Share a vibe..."}
+                className="flex-1 bg-transparent border-none text-white focus:ring-0 placeholder:text-slate-600 text-base"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!message.trim() && !selectedFile}
+                className="bg-white text-black p-4 rounded-[1.4rem] hover:bg-violet-500 hover:text-white transition-all disabled:opacity-20 shadow-xl"
+              >
+                <Send className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
