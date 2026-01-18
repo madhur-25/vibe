@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Users, MessageCircle, LogOut, User, Paperclip, Image, FileText, X, Lock, Sparkles } from 'lucide-react';
 
-// --- LOGIC SECTION: TOUCHING NOTHING HERE AS REQUESTED ---
+
 class EnhancedSocketSimulator {
   constructor() {
     this.listeners = {};
@@ -78,12 +78,12 @@ export default function EnhancedChatApp() {
     socket.on('userJoined', (data) => {
       setOnlineUsers(data.onlineUsers);
       if (data.username !== username) {
-        setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} stepped into the vibe`, timestamp: new Date().toISOString() }]);
+        setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} joined`, timestamp: new Date().toISOString() }]);
       }
     });
     socket.on('userLeft', (data) => {
       setOnlineUsers(data.onlineUsers);
-      setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} left the space`, timestamp: new Date().toISOString() }]);
+      setMessages(prev => [...prev, { id: Date.now(), type: 'system', text: `${data.username} left`, timestamp: new Date().toISOString() }]);
     });
     socket.on('userTyping', (data) => {
       if (data.userId !== userId) {
@@ -140,20 +140,21 @@ export default function EnhancedChatApp() {
   const formatTime = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const handleKeyPress = (e, action) => { if (e.key === 'Enter') { e.preventDefault(); action(); } };
 
-  // --- UI SECTION: THE AESTHETIC REWRITE ---
+  // --- UI SECTION: GREY AESTHETIC REWRITE ---
   if (!isJoined) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center p-6 font-sans selection:bg-violet-500/30">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/20 rounded-full blur-[120px] animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-fuchsia-600/10 rounded-full blur-[120px]"></div>
+      <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-6 font-sans selection:bg-zinc-500/30">
+        {/* Subtle Grey Blobs */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-zinc-500/5 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-zinc-500/5 rounded-full blur-[120px]"></div>
         
-        <div className="relative w-full max-w-[400px] backdrop-blur-2xl bg-white/[0.02] border border-white/10 p-10 rounded-[2.5rem] shadow-2xl">
+        <div className="relative w-full max-w-[400px] backdrop-blur-3xl bg-zinc-900/40 border border-zinc-800 p-10 rounded-[2.5rem] shadow-2xl">
           <div className="flex flex-col items-center mb-10">
-            <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-fuchsia-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-violet-500/40 mb-6 rotate-3">
-              <Sparkles className="w-10 h-10 text-white" />
+            <div className="w-20 h-20 bg-zinc-100 rounded-3xl flex items-center justify-center shadow-2xl shadow-zinc-500/10 mb-6 transition-transform hover:rotate-6 duration-500">
+              <Sparkles className="w-10 h-10 text-black" />
             </div>
-            <h1 className="text-5xl font-black text-white tracking-tighter mb-2">vibe.</h1>
-            <p className="text-slate-400 font-medium">unfiltered connection.</p>
+            <h1 className="text-5xl font-black text-zinc-100 tracking-tighter mb-2">vibe.</h1>
+            <p className="text-zinc-500 font-medium">unfiltered connection.</p>
           </div>
 
           <div className="space-y-4">
@@ -163,11 +164,11 @@ export default function EnhancedChatApp() {
               onChange={(e) => setUsername(e.target.value)}
               onKeyPress={(e) => handleKeyPress(e, handleJoin)}
               placeholder="What's your alias?"
-              className="w-full bg-white/[0.03] border border-white/10 px-6 py-4 rounded-2xl text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all text-center text-lg"
+              className="w-full bg-zinc-950/50 border border-zinc-800 px-6 py-4 rounded-2xl text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:border-zinc-500 transition-all text-center text-lg"
             />
             <button
               onClick={handleJoin}
-              className="w-full bg-white text-black py-4 rounded-2xl font-bold text-lg hover:bg-violet-500 hover:text-white transition-all duration-500 active:scale-95 shadow-xl"
+              className="w-full bg-zinc-100 text-black py-4 rounded-2xl font-bold text-lg hover:bg-zinc-200 transition-all duration-300 active:scale-95 shadow-lg"
             >
               Enter the space
             </button>
@@ -178,45 +179,45 @@ export default function EnhancedChatApp() {
   }
 
   return (
-    <div className="h-screen bg-[#020617] flex overflow-hidden font-sans text-slate-200">
+    <div className="h-screen bg-[#09090b] flex overflow-hidden font-sans text-zinc-300">
       <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" className="hidden" />
 
       {/* Sidebar */}
-      <div className="w-80 bg-white/[0.01] border-r border-white/5 flex flex-col backdrop-blur-3xl">
+      <div className="w-80 bg-zinc-950/50 border-r border-zinc-800 flex flex-col backdrop-blur-3xl">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <Sparkles className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center shadow-lg">
+              <Sparkles className="w-6 h-6 text-black" />
             </div>
-            <h2 className="text-2xl font-bold tracking-tighter text-white">vibe.</h2>
+            <h2 className="text-2xl font-bold tracking-tighter text-zinc-100">vibe.</h2>
           </div>
           
-          <div className="bg-white/[0.03] border border-white/5 p-4 rounded-2xl flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-violet-400 font-bold">
+          <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-2xl flex items-center gap-3">
+            <div className="w-10 h-10 bg-zinc-800 rounded-full flex items-center justify-center text-zinc-100 font-bold border border-zinc-700">
               {username.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-bold text-white leading-none">{username}</p>
-              <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-widest">Active Now</p>
+              <p className="text-sm font-bold text-zinc-100 leading-none">{username}</p>
+              <p className="text-[10px] text-zinc-500 mt-1 uppercase tracking-widest font-bold">Online</p>
             </div>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Online Users</h3>
-            <span className="bg-green-500/20 text-green-400 text-[10px] px-2 py-0.5 rounded-full font-bold">{onlineUsers.length}</span>
+          <div className="flex items-center justify-between mb-4 px-2">
+            <h3 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Active Members</h3>
+            <span className="bg-zinc-800 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold">{onlineUsers.length}</span>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {onlineUsers.map((user, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-white/[0.03] transition-all cursor-pointer group">
+              <div key={idx} className="flex items-center justify-between p-3 rounded-xl hover:bg-zinc-800/50 transition-all cursor-pointer group">
                 <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                  <span className="text-sm font-medium text-slate-300 group-hover:text-white">{user.username}</span>
+                  <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full group-hover:bg-zinc-100 transition-colors"></div>
+                  <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-100">{user.username}</span>
                 </div>
                 {user.userId !== userId && (
                   <button onClick={() => setPrivateMessageUser(user)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Lock className="w-4 h-4 text-slate-500 hover:text-violet-400" />
+                    <Lock className="w-4 h-4 text-zinc-600 hover:text-zinc-100" />
                   </button>
                 )}
               </div>
@@ -224,12 +225,11 @@ export default function EnhancedChatApp() {
           </div>
         </div>
 
-        {/* --- YOUR NAME LINE --- */}
-        <div className="p-6 border-t border-white/5">
-          <p className="text-[10px] text-center text-slate-600 mb-4 tracking-tight">
-            Designed for <span className="text-violet-500 font-bold">vibe.</span> by <span className="text-slate-300">Madhur Kaushik</span>
+        <div className="p-6 border-t border-zinc-800">
+          <p className="text-[10px] text-center text-zinc-600 mb-4 tracking-tight">
+            Designed for <span className="text-zinc-100 font-bold">vibe.</span> by <span className="text-zinc-500">Madhur Kaushik</span>
           </p>
-          <button onClick={() => setIsJoined(false)} className="w-full flex items-center justify-center gap-2 bg-slate-900 text-slate-400 py-3 rounded-xl hover:bg-red-500/10 hover:text-red-400 transition-all border border-white/5">
+          <button onClick={() => setIsJoined(false)} className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-zinc-400 py-3 rounded-xl hover:bg-zinc-100 hover:text-black transition-all border border-zinc-800">
             <LogOut className="w-4 h-4" />
             <span className="text-sm font-bold">Disconnect</span>
           </button>
@@ -237,39 +237,38 @@ export default function EnhancedChatApp() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative bg-[#020617]">
+      <div className="flex-1 flex flex-col relative bg-[#09090b]">
         {/* Header */}
-        <div className="h-24 flex items-center justify-between px-10 border-b border-white/5 backdrop-blur-md bg-[#020617]/50 z-10">
+        <div className="h-20 flex items-center justify-between px-10 border-b border-zinc-800/50 backdrop-blur-md bg-[#09090b]/80 z-10">
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              {privateMessageUser ? `🔒 Direct: ${privateMessageUser.username}` : 'General Space'}
+            <h1 className="text-lg font-bold text-zinc-100 tracking-tight flex items-center gap-2">
+              {privateMessageUser ? <><Lock className="w-4 h-4 text-zinc-500" /> {privateMessageUser.username}</> : 'General Space'}
             </h1>
-            <p className="text-xs text-slate-500 mt-1">End-to-end encrypted vibe</p>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6">
+        <div className="flex-1 overflow-y-auto px-10 py-8 space-y-8">
           {messages.map((msg) => {
             if (msg.type === 'system') return (
-              <div key={msg.id} className="flex justify-center"><span className="text-[10px] uppercase tracking-widest text-slate-600 font-bold">{msg.text}</span></div>
+              <div key={msg.id} className="flex justify-center"><span className="text-[9px] uppercase tracking-[0.2em] text-zinc-600 font-black">{msg.text}</span></div>
             );
             const isOwn = msg.userId === userId;
             return (
               <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
                 <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
-                  {!isOwn && <p className="text-[10px] font-bold text-slate-500 mb-2 ml-1 uppercase tracking-tighter">{msg.username}</p>}
-                  <div className={`relative px-5 py-3 rounded-2xl ${isOwn ? 'bg-violet-600 text-white rounded-tr-none shadow-xl shadow-violet-600/10' : 'bg-slate-900 text-slate-200 rounded-tl-none border border-white/5'}`}>
+                  {!isOwn && <p className="text-[10px] font-black text-zinc-600 mb-1.5 ml-1 uppercase tracking-widest">{msg.username}</p>}
+                  <div className={`relative px-5 py-3.5 rounded-2xl ${isOwn ? 'bg-zinc-100 text-black rounded-tr-none shadow-xl' : 'bg-zinc-900 text-zinc-200 rounded-tl-none border border-zinc-800'}`}>
                     {msg.type === 'file' ? (
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3 p-2 bg-black/20 rounded-lg">
+                        <div className="flex items-center gap-3 p-2 bg-black/10 rounded-lg">
                           <FileText className="w-5 h-5" />
                           <span className="text-xs truncate max-w-[150px]">{msg.text}</span>
                         </div>
-                        {msg.fileType?.startsWith('image/') && <img src={msg.fileUrl} className="max-w-full rounded-lg shadow-inner" alt="upload" />}
+                        {msg.fileType?.startsWith('image/') && <img src={msg.fileUrl} className="max-w-full rounded-lg" alt="upload" />}
                       </div>
-                    ) : <p className="text-[15px] leading-relaxed">{msg.text}</p>}
-                    <p className={`text-[9px] mt-2 font-medium opacity-40 ${isOwn ? 'text-right' : 'text-left'}`}>{formatTime(msg.timestamp)}</p>
+                    ) : <p className="text-[14px] leading-relaxed font-medium">{msg.text}</p>}
+                    <p className={`text-[8px] mt-2 font-bold uppercase tracking-widest opacity-40 ${isOwn ? 'text-right' : 'text-left'}`}>{formatTime(msg.timestamp)}</p>
                   </div>
                 </div>
               </div>
@@ -280,42 +279,41 @@ export default function EnhancedChatApp() {
 
         {/* Typing Indicator */}
         {typingUsers.size > 0 && (
-          <div className="absolute bottom-28 left-10 flex items-center gap-2 text-[10px] font-bold text-violet-400 uppercase tracking-widest bg-violet-400/5 px-4 py-2 rounded-full border border-violet-400/10 animate-pulse">
-            {Array.from(typingUsers).join(', ')} is typing
+          <div className="absolute bottom-28 left-10 flex items-center gap-2 text-[9px] font-black text-zinc-500 uppercase tracking-widest bg-zinc-900/50 px-4 py-2 rounded-full border border-zinc-800 animate-pulse">
+            {Array.from(typingUsers).join(', ')} typing...
           </div>
         )}
 
         {/* Input */}
         <div className="p-10 pt-0">
           {showFilePreview && (
-            <div className="mb-4 p-4 bg-violet-600/10 border border-violet-600/20 rounded-2xl flex items-center justify-between animate-in zoom-in-95">
+            <div className="mb-4 p-4 bg-zinc-900 border border-zinc-800 rounded-2xl flex items-center justify-between animate-in slide-in-from-bottom-2">
               <div className="flex items-center gap-3">
-                <Paperclip className="w-5 h-5 text-violet-400" />
-                <span className="text-sm text-violet-200 font-medium truncate max-w-[200px]">{selectedFile?.name}</span>
+                <Paperclip className="w-4 h-4 text-zinc-400" />
+                <span className="text-xs text-zinc-100 font-bold truncate max-w-[200px]">{selectedFile?.name}</span>
               </div>
-              <button onClick={() => setShowFilePreview(false)} className="text-violet-400 hover:text-white"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowFilePreview(false)} className="text-zinc-500 hover:text-zinc-100"><X className="w-4 h-4" /></button>
             </div>
           )}
           <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-[2rem] blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
-            <div className="relative flex items-center gap-4 bg-slate-900 border border-white/10 p-2 rounded-[1.8rem]">
-              <button onClick={() => fileInputRef.current?.click()} className="p-4 text-slate-500 hover:text-violet-400 transition-colors">
-                <Paperclip className="w-6 h-6" />
+            <div className="relative flex items-center gap-2 bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl transition-all focus-within:border-zinc-500 shadow-2xl">
+              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-500 hover:text-zinc-100 transition-colors">
+                <Paperclip className="w-5 h-5" />
               </button>
               <input
                 type="text"
                 value={message}
                 onChange={(e) => { setMessage(e.target.value); handleTyping(); }}
                 onKeyPress={(e) => handleKeyPress(e, handleSendMessage)}
-                placeholder={privateMessageUser ? `Whisper to ${privateMessageUser.username}...` : "Share a vibe..."}
-                className="flex-1 bg-transparent border-none text-white focus:ring-0 placeholder:text-slate-600 text-base"
+                placeholder={privateMessageUser ? `Whisper to ${privateMessageUser.username}...` : "Type a message..."}
+                className="flex-1 bg-transparent border-none text-zinc-100 focus:ring-0 placeholder:text-zinc-700 text-sm font-medium"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!message.trim() && !selectedFile}
-                className="bg-white text-black p-4 rounded-[1.4rem] hover:bg-violet-500 hover:text-white transition-all disabled:opacity-20 shadow-xl"
+                className="bg-zinc-100 text-black p-3.5 rounded-xl hover:bg-zinc-200 transition-all disabled:opacity-10 shadow-lg"
               >
-                <Send className="w-6 h-6" />
+                <Send className="w-5 h-5" />
               </button>
             </div>
           </div>
