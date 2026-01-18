@@ -355,27 +355,31 @@ io.on('connection', (socket) => {
   });
   
   // Handle disconnect
+// Handle disconnect
   socket.on('disconnect', async () => {
     try {
       const { username, userId, roomId } = socket;
       
       if (userId) {
-        // Remove from online users
+        // 1. Remove from online users
         onlineUsers.delete(userId);
         
-        // Update user's last seen
+        // 2. Update user's last seen
         await User.findOneAndUpdate(
           { userId },
           { lastSeen: new Date() }
         );
         
         if (roomId) {
-          // Get updated online users
+          // 3. THE FIX: Map users to objects, NOT just usernames
           const roomUsers = Array.from(onlineUsers.values())
             .filter(u => u.roomId === roomId)
-            .map(u => u.username);
+            .map(u => ({ 
+              userId: u.userId, 
+              username: u.username 
+            }));
           
-          // Notify room
+          // 4. Notify the room with the correct object format
           io.to(roomId).emit('userLeft', {
             username,
             userId,
