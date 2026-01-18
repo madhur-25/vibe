@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const directMessageSchema = new mongoose.Schema({
   conversationId: {
     type: String,
