@@ -71,10 +71,6 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp',
 .then(() => console.log('✅ MongoDB Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// Import Models (we'll create these next)
-const Message = require('./models/Message');
-const User = require('./models/User');
-const Room = require('./models/Room');
 
 // Store online users
 const onlineUsers = new Map();
