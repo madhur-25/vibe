@@ -1,10 +1,4 @@
-
-// server.js 
-const { verifyToken, optionalAuth, isAdmin, rateLimiter } = require('./middleware/auth');
-const User = require('./models/User');
-const Message = require('./models/Message');
-const Room = require('./models/Room');
-const DirectMessage = require('./models/DirectMessage');
+// server.js - Updated with JWT Authentication
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -13,6 +7,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -28,12 +23,14 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  credentials: true
+}));
 app.use(express.json());
-app.use('/api/', rateLimiter(100, 15 * 60 * 1000)); 
 app.use('/uploads', express.static('uploads'));
 
-// Create uploads directory if it doesn't exist
+// Create uploads directory
 if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');
 }
@@ -51,7 +48,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
@@ -60,7 +57,7 @@ const upload = multer({
     if (extname && mimetype) {
       return cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only images and documents allowed.'));
+      cb(new Error('Invalid file type'));
     }
   }
 });
@@ -73,16 +70,26 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp',
 .then(() => console.log('✅ MongoDB Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
+// Import Models
+const Message = require('./models/Message');
+const User = require('./models/User');
+const Room = require('./models/Room');
+
+// Import Routes
+const authRoutes = require('./routes/auth');
+const { verifyToken } = require('./middleware/auth');
 
 // Store online users
 const onlineUsers = new Map();
 
-// REST API Routes
+// Routes
+app.use('/api/auth', authRoutes);
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Chat server is running' });
 });
 
-// 1. Get message history (Protected by JWT)
+// Get message history (protected)
 app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -91,7 +98,7 @@ app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
     const messages = await Message.find({ roomId })
       .sort({ timestamp: -1 })
       .limit(limit)
-      .populate('userId', 'username');
+      .populate('userId', 'username avatar');
     
     res.json(messages.reverse());
   } catch (error) {
@@ -99,32 +106,7 @@ app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
   }
 });
 
-// 2. Auth Login Route (Crucial for getting the Token)
-const jwt = require('jsonwebtoken');
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { username, userId } = req.body;
-    
-    // Create the digital ID (Token)
-    const token = jwt.sign(
-      { userId, username }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '7d' }
-    );
-
-    // Save token to User document in DB
-    const user = await getOrCreateUser(username, userId);
-    user.tokens = user.tokens || [];
-    user.tokens.push({ token });
-    await user.save();
-
-    res.json({ success: true, token, username, userId });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 2. File upload endpoint 
+// File upload endpoint (protected)
 app.post('/api/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -145,117 +127,111 @@ app.post('/api/upload', verifyToken, upload.single('file'), async (req, res) => 
   }
 });
 
-// Get or create user
-async function getOrCreateUser(username, userId) {
-  let user = await User.findOne({ userId });
-  
-  if (!user) {
-    user = await User.create({
-      userId,
-      username,
-      lastSeen: new Date()
-    });
-  } else {
-    user.username = username;
-    user.lastSeen = new Date();
-    await user.save();
-  }
-  
-  return user;
-}
+// Socket.io Authentication Middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    
+    if (!token) {
+      return next(new Error('Authentication error: Token required'));
+    }
 
-// Socket.io Middleware for JWT Authentication
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  
-  if (!token) {
-    return next(new Error("Authentication error: Token missing"));
-  }
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // Find user
+    const user = await User.findOne({ userId: decoded.userId });
+    
+    if (!user) {
+      return next(new Error('Authentication error: User not found'));
+    }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) return next(new Error("Authentication error: Invalid token"));
-    socket.user = decoded; // Store user data for later use
+    // Attach user to socket
+    socket.userId = user.userId;
+    socket.username = user.username;
+    socket.user = user;
+    
     next();
-  });
+  } catch (error) {
+    console.error('Socket auth error:', error);
+    next(new Error('Authentication error: Invalid token'));
+  }
 });
+
 // Socket.io Connection Handler
 io.on('connection', (socket) => {
-  console.log(`🔌 New connection: ${socket.id}`);
-  
+  console.log(`🔌 ${socket.username} connected (${socket.id})`);
   
   // User joins the chat
   socket.on('join', async (data) => {
     try {
-      const { username, userId, roomId = 'general' } = data;
+      const { roomId = 'general' } = data;
       
-      // Create or get user
-      const user = await getOrCreateUser(username, userId);
+      // Update user status
+      socket.user.status = 'online';
+      socket.user.lastSeen = new Date();
+      await socket.user.save();
       
-      // Store socket info
-      socket.username = username;
-      socket.userId = userId;
       socket.roomId = roomId;
-      
-      // Join room
       socket.join(roomId);
       
       // Add to online users
-      onlineUsers.set(userId, {
+      onlineUsers.set(socket.userId, {
         socketId: socket.id,
-        username,
+        username: socket.username,
         roomId,
+        avatar: socket.user.avatar,
         joinedAt: new Date()
       });
       
-      // Get current online users in room
-    const roomUsers = Array.from(onlineUsers.values())
-  .filter(u => u.roomId === roomId)
-  .map(u => ({ 
-    userId: u.userId, 
-    username: u.username 
-  })); 
+      // Get online users in room
+      const roomUsers = Array.from(onlineUsers.values())
+        .filter(u => u.roomId === roomId)
+        .map(u => ({
+          userId: u.userId,
+          username: u.username,
+          avatar: u.avatar
+        }));
       
-      // Emit to all users in room
+      // Notify room
       io.to(roomId).emit('userJoined', {
-        username,
-        userId,
+        username: socket.username,
+        userId: socket.userId,
+        avatar: socket.user.avatar,
         onlineUsers: roomUsers,
         timestamp: new Date()
       });
       
-      console.log(`✅ ${username} joined room: ${roomId}`);
+      console.log(`✅ ${socket.username} joined room: ${roomId}`);
     } catch (error) {
       console.error('Error in join:', error);
       socket.emit('error', { message: 'Failed to join chat' });
     }
   });
   
-  // Handle regular messages
+  // Handle messages
   socket.on('message', async (data) => {
     try {
-      const { username, userId, text, roomId = 'general', type = 'user' } = data;
+      const { text, roomId = 'general', type = 'user' } = data;
       
-      // Save message to database
       const message = await Message.create({
-        userId,
-        username,
+        userId: socket.userId,
+        username: socket.username,
         text,
         roomId,
         type,
         timestamp: new Date()
       });
       
-      // Broadcast to all users in room
       io.to(roomId).emit('message', {
         id: message._id,
-        username,
-        userId,
+        username: socket.username,
+        userId: socket.userId,
         text,
         type,
         timestamp: message.timestamp
       });
       
-      console.log(`💬 Message from ${username}: ${text}`);
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('error', { message: 'Failed to send message' });
@@ -265,12 +241,11 @@ io.on('connection', (socket) => {
   // Handle file messages
   socket.on('fileMessage', async (data) => {
     try {
-      const { username, userId, fileUrl, filename, fileType, roomId = 'general' } = data;
+      const { fileUrl, filename, fileType, roomId = 'general' } = data;
       
-      // Save file message to database
       const message = await Message.create({
-        userId,
-        username,
+        userId: socket.userId,
+        username: socket.username,
         text: filename,
         roomId,
         type: 'file',
@@ -279,11 +254,10 @@ io.on('connection', (socket) => {
         timestamp: new Date()
       });
       
-      // Broadcast to all users in room
       io.to(roomId).emit('message', {
         id: message._id,
-        username,
-        userId,
+        username: socket.username,
+        userId: socket.userId,
         text: filename,
         type: 'file',
         fileUrl,
@@ -291,7 +265,6 @@ io.on('connection', (socket) => {
         timestamp: message.timestamp
       });
       
-      console.log(`📎 File from ${username}: ${filename}`);
     } catch (error) {
       console.error('Error sending file:', error);
       socket.emit('error', { message: 'Failed to send file' });
@@ -301,33 +274,29 @@ io.on('connection', (socket) => {
   // Handle private messages
   socket.on('privateMessage', async (data) => {
     try {
-      const { fromUserId, fromUsername, toUserId, text } = data;
+      const { toUserId, text } = data;
       
-      // Save private message
       const message = await Message.create({
-        userId: fromUserId,
-        username: fromUsername,
+        userId: socket.userId,
+        username: socket.username,
         text,
         type: 'private',
         recipientId: toUserId,
         timestamp: new Date()
       });
       
-      // Find recipient's socket
       const recipient = onlineUsers.get(toUserId);
       
       if (recipient) {
-        // Send to recipient
         io.to(recipient.socketId).emit('privateMessage', {
           id: message._id,
-          fromUserId,
-          fromUsername,
+          fromUserId: socket.userId,
+          fromUsername: socket.username,
           text,
           timestamp: message.timestamp
         });
       }
       
-      // Send confirmation to sender
       socket.emit('privateMessageSent', {
         id: message._id,
         toUserId,
@@ -335,58 +304,47 @@ io.on('connection', (socket) => {
         timestamp: message.timestamp
       });
       
-      console.log(`🔒 Private message from ${fromUsername} to ${toUserId}`);
     } catch (error) {
       console.error('Error sending private message:', error);
       socket.emit('error', { message: 'Failed to send private message' });
     }
   });
   
-  // Handle typing indicator
+  // Handle typing
   socket.on('typing', (data) => {
-    const { username, userId, roomId = 'general' } = data;
-    socket.to(roomId).emit('userTyping', { username, userId });
-  });
-  
-  // Handle stop typing
-  socket.on('stopTyping', (data) => {
-    const { userId, roomId = 'general' } = data;
-    socket.to(roomId).emit('userStoppedTyping', { userId });
+    const { roomId = 'general' } = data;
+    socket.to(roomId).emit('userTyping', { 
+      username: socket.username, 
+      userId: socket.userId 
+    });
   });
   
   // Handle reactions
   socket.on('reaction', async (data) => {
     try {
-      const { messageId, emoji, userId, roomId = 'general' } = data;
+      const { messageId, emoji, roomId = 'general' } = data;
       
       const message = await Message.findById(messageId);
-      if (!message) {
-        socket.emit('error', { message: 'Message not found' });
-        return;
-      }
+      if (!message) return;
       
       if (!message.reactions) {
         message.reactions = [];
       }
       
-      // Check if user already reacted with this emoji
       const existingReaction = message.reactions.find(
-        r => r.userId === userId && r.emoji === emoji
+        r => r.userId === socket.userId && r.emoji === emoji
       );
       
       if (existingReaction) {
-        // Remove reaction
         message.reactions = message.reactions.filter(
-          r => !(r.userId === userId && r.emoji === emoji)
+          r => !(r.userId === socket.userId && r.emoji === emoji)
         );
       } else {
-        // Add reaction
-        message.reactions.push({ userId, emoji });
+        message.reactions.push({ userId: socket.userId, emoji });
       }
       
       await message.save();
       
-      // Broadcast reaction update
       io.to(roomId).emit('reactionUpdate', {
         messageId,
         reactions: message.reactions
@@ -396,41 +354,39 @@ io.on('connection', (socket) => {
     }
   });
   
-
-// Handle disconnect
+  // Handle disconnect
   socket.on('disconnect', async () => {
     try {
-      const { username, userId, roomId } = socket;
-      
-      if (userId) {
-        // 1. Remove from online users
-        onlineUsers.delete(userId);
+      if (socket.userId) {
+        onlineUsers.delete(socket.userId);
         
-        // 2. Update user's last seen
+        // Update user status
         await User.findOneAndUpdate(
-          { userId },
-          { lastSeen: new Date() }
+          { userId: socket.userId },
+          { 
+            status: 'offline',
+            lastSeen: new Date() 
+          }
         );
         
-        if (roomId) {
-          // 3. THE FIX: Map users to objects, NOT just usernames
+        if (socket.roomId) {
           const roomUsers = Array.from(onlineUsers.values())
-            .filter(u => u.roomId === roomId)
-            .map(u => ({ 
-              userId: u.userId, 
-              username: u.username 
+            .filter(u => u.roomId === socket.roomId)
+            .map(u => ({
+              userId: u.userId,
+              username: u.username,
+              avatar: u.avatar
             }));
           
-          // 4. Notify the room with the correct object format
-          io.to(roomId).emit('userLeft', {
-            username,
-            userId,
+          io.to(socket.roomId).emit('userLeft', {
+            username: socket.username,
+            userId: socket.userId,
             onlineUsers: roomUsers,
             timestamp: new Date()
           });
         }
         
-        console.log(`❌ ${username} disconnected`);
+        console.log(`❌ ${socket.username} disconnected`);
       }
     } catch (error) {
       console.error('Error on disconnect:', error);
@@ -448,6 +404,6 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Socket.io enabled`);
+  console.log(`📡 Socket.io enabled with JWT authentication`);
   console.log(`🌐 CORS enabled for: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 });
