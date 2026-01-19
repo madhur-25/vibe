@@ -1,4 +1,5 @@
 vibe. 🚀
+
 vibe. is a high-performance, real-time communication platform engineered for seamless interaction. Built using the MERN stack and Socket.io, it features secure authentication, persistent messaging, and real-time user presence.
 
 🛠️ Tech Stack
