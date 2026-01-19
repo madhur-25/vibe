@@ -21,16 +21,13 @@ const roomSchema = new mongoose.Schema({
     enum: ['public', 'private', 'direct'],
     default: 'public'
   },
-  // Room owner
   createdBy: {
     type: String,
     required: true
   },
-  // Room admins
   admins: [{
     type: String
   }],
-  // Room members (for private rooms)
   members: [{
     userId: String,
     joinedAt: {
@@ -43,7 +40,6 @@ const roomSchema = new mongoose.Schema({
       default: 'member'
     }
   }],
-  // Room settings
   settings: {
     maxMembers: {
       type: Number,
@@ -59,10 +55,9 @@ const roomSchema = new mongoose.Schema({
     },
     password: {
       type: String,
-      select: false // Don't return password in queries
+      select: false
     }
   },
-  // Room metadata
   messageCount: {
     type: Number,
     default: 0
@@ -83,16 +78,13 @@ const roomSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient room searches
 roomSchema.index({ type: 1, isArchived: 1 });
 roomSchema.index({ 'members.userId': 1 });
 
-// Method to check if user is member
 roomSchema.methods.isMember = function(userId) {
   return this.members.some(member => member.userId === userId);
 };
 
-// Method to check if user is admin
 roomSchema.methods.isAdmin = function(userId) {
   return this.admins.includes(userId) || this.createdBy === userId;
 };
