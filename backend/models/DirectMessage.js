@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+
 const directMessageSchema = new mongoose.Schema({
   conversationId: {
     type: String,
@@ -45,11 +46,9 @@ const directMessageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
 directMessageSchema.index({ participants: 1 });
 directMessageSchema.index({ 'lastMessage.timestamp': -1 });
 
-// Static method to create conversation ID
 directMessageSchema.statics.createConversationId = function(userId1, userId2) {
   return [userId1, userId2].sort().join('-');
 };
