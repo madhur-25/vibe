@@ -160,9 +160,23 @@ export default function EnhancedChatApp() {
         </div>
 
         <div className="p-6 border-t border-zinc-800">
-          <button onClick={logout} className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-zinc-400 py-3 rounded-xl hover:bg-zinc-100 hover:text-black transition-all border border-zinc-800">
+          <button onClick={logout} className="w-full flex items-center justify-center gap-2 bg-zinc-900 text-zinc-400 py-3 rounded-xl hover:bg-zinc-100 hover:text-black transition-all border border-zinc-800 mb-6">
             <LogOut className="w-4 h-4" /> <span className="text-sm font-bold">Disconnect</span>
           </button>
+          
+          <div className="flex justify-center items-center opacity-50 hover:opacity-100 transition-opacity duration-500">
+            <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500 font-bold">
+              Developed by{" "}
+              <a 
+                href="https://github.com/madhur-25" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-zinc-100 hover:text-indigo-400 transition-colors duration-300 border-b border-zinc-500/20 hover:border-indigo-500/50 pb-0.5"
+              >
+                Madhur Kaushik
+              </a>
+            </p>
+          </div>
         </div>
       </div>
 
