@@ -1,69 +1,112 @@
-vibe. unfiltered connections
+# vibe. unfiltered connection.
 
-vibe. is a high-performance, real-time communication platform engineered for seamless interaction. Built using the MERN stack and Socket.io, it features secure authentication, persistent messaging, and real-time user presence.
+**vibe.** is a high-performance, real-time communication platform engineered for seamless interaction.  
+Built using the **MERN stack** and **Socket.io**, it enables secure authentication, persistent messaging, and real-time user presence.
 
-Bash
+---
 
-🛠️ Tech Stack
-Frontend: React.js, Tailwind CSS, Vite
+## 🛠️ Tech Stack
 
-Backend: Node.js, Express.js
+### Frontend
+- React.js
+- Tailwind CSS
+- Vite
 
-Database: MongoDB (Atlas)
+### Backend
+- Node.js
+- Express.js
 
-Real-time Engine: Socket.io
+### Database
+- MongoDB Atlas
 
-Authentication: JSON Web Tokens (JWT)
+### Real-time Engine
+- Socket.io
 
-Deployment: Vercel (Frontend), Render (Backend)
+### Authentication
+- JSON Web Tokens (JWT)
 
-✨ Key Features
-Real-time Messaging: Instant message delivery using WebSocket technology.
+### Deployment
+- Vercel (Frontend)
+- Render (Backend)
 
-Secure Authentication: Protected routes and encrypted user sessions via JWT.
+---
 
-Online Presence: Live tracking of active members in the "General Space."
+## ✨ Key Features
 
-Typing Indicators: Real-time "User is typing..." feedback.
+- **Real-time Messaging**  
+  Instant message delivery using WebSocket communication.
 
-Private Whispers: Secure peer-to-peer private messaging capability.
+- **Secure Authentication**  
+  JWT-based authentication with protected routes and encrypted sessions.
 
-Persistent History: All conversations are stored and retrieved from MongoDB on login.
+- **File & Media Sharing** 
+  Secure uploads for images, documents, and media.
 
-Modern UI: Sleek, minimalist "Astro-dark" design built with Tailwind CSS.
+- **Online Presence**  
+  Live tracking of active users in the *General Space*.
 
-🏗️ System Architecture
-The application follows a Decoupled Architecture:
+- **Typing Indicators**  
+  Real-time “user is typing” feedback.
 
-Client: A React SPA (Single Page Application) that manages local state and socket connections.
+- **Private Whispers**  
+  Secure peer-to-peer private messaging between users.
 
-Server: A RESTful API that handles authentication, database CRUD operations, and coordinates the Socket.io server.
+- **Persistent Chat History**  
+  Messages are stored in MongoDB and restored on user login.
 
-Database: A NoSQL layer for scalable message and user data storage.
+- **Modern UI**  
+  Clean, minimalist *Astro-dark* interface built with Tailwind CSS.
+  
+- **Private Rooms with Unique IDs**  
+ Create invite-only chat rooms accessible via unique room IDs or shareable links.(working on it)
 
-🚀 Installation & Setup
-Clone the repo:
+---
 
-Bash
+## 🏗️ System Architecture
 
+The application follows a **Decoupled Architecture**:
+
+- **Client (Frontend)**  
+  A React Single Page Application (SPA) responsible for UI rendering, local state management, and Socket.io connections.
+
+- **Server (Backend)**  
+  A RESTful API that handles authentication, database CRUD operations, and coordinates the Socket.io server.
+
+- **Database**  
+  A NoSQL data layer (MongoDB) for scalable storage of users and messages.
+
+---
+
+##  Installation & Setup
+
+### 1️⃣ Clone the repository
+```bash
 git clone https://github.com/madhur-25/vibe-app.git
-Install Dependencies:
-
-Bash
 
 # Backend
-cd backend && npm install
+cd backend
+npm install
+
 # Frontend
-cd frontend && npm install
-Environment Variables: Create a .env in the backend for MONGODB_URI and JWT_SECRET. Create a .env in the frontend for VITE_API_URL.
+cd ../frontend
+npm install
 
-Run Development:
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
 
-Bash
+VITE_API_URL=http://localhost:4000
 
 # Backend
 npm start
+
 # Frontend
 npm run dev
+
 👤 Author
-Madhur Kaushik Full-Stack Developer & DSA Enthusiast
+Madhur Kaushik
+
+
+
+
+
+
