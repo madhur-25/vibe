@@ -30,6 +30,7 @@ const io = socketIo(server, {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/api/', rateLimiter(100, 15 * 60 * 1000)); 
 app.use('/uploads', express.static('uploads'));
 
 // Create uploads directory if it doesn't exist
@@ -81,8 +82,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Chat server is running' });
 });
 
-// Get message history
-app.get('/api/messages/:roomId', async (req, res) => {
+// 1. Get message history (Protected by JWT)
+app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
     const limit = parseInt(req.query.limit) || 50;
@@ -98,8 +99,33 @@ app.get('/api/messages/:roomId', async (req, res) => {
   }
 });
 
-// File upload endpoint
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+// 2. Auth Login Route (Crucial for getting the Token)
+const jwt = require('jsonwebtoken');
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, userId } = req.body;
+    
+    // Create the digital ID (Token)
+    const token = jwt.sign(
+      { userId, username }, 
+      process.env.JWT_SECRET, 
+      { expiresIn: '7d' }
+    );
+
+    // Save token to User document in DB
+    const user = await getOrCreateUser(username, userId);
+    user.tokens = user.tokens || [];
+    user.tokens.push({ token });
+    await user.save();
+
+    res.json({ success: true, token, username, userId });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. File upload endpoint 
+app.post('/api/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -138,9 +164,24 @@ async function getOrCreateUser(username, userId) {
   return user;
 }
 
+// Socket.io Middleware for JWT Authentication
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next(new Error("Authentication error: Token missing"));
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return next(new Error("Authentication error: Invalid token"));
+    socket.user = decoded; // Store user data for later use
+    next();
+  });
+});
 // Socket.io Connection Handler
 io.on('connection', (socket) => {
   console.log(`🔌 New connection: ${socket.id}`);
+  
   
   // User joins the chat
   socket.on('join', async (data) => {
@@ -355,7 +396,7 @@ io.on('connection', (socket) => {
     }
   });
   
-  // Handle disconnect
+
 // Handle disconnect
   socket.on('disconnect', async () => {
     try {
