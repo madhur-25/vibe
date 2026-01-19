@@ -1,4 +1,3 @@
-///Message.js
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
@@ -25,19 +24,16 @@ const messageSchema = new mongoose.Schema({
     enum: ['user', 'system', 'file', 'private'],
     default: 'user'
   },
-  // For file messages
   fileUrl: {
     type: String
   },
   fileType: {
     type: String
   },
-  // For private messages
   recipientId: {
     type: String,
     index: true
   },
-  // Reactions to messages
   reactions: [{
     userId: String,
     emoji: String,
@@ -46,7 +42,6 @@ const messageSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  // Message status
   isEdited: {
     type: Boolean,
     default: false
@@ -64,7 +59,6 @@ const messageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient queries
 messageSchema.index({ roomId: 1, timestamp: -1 });
 messageSchema.index({ userId: 1, recipientId: 1 });
 
