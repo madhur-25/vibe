@@ -10,13 +10,21 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    unique: true
   },
   email: {
     type: String,
+    required: true,
+    unique: true,
     trim: true,
-    lowercase: true,
-    sparse: true // Allows null values but enforces uniqueness when present
+    lowercase: true
+  },
+  password: {
+    type: String,
+    required: true,
+    minlength: 6,
+    select: false // Don't return password by default
   },
   avatar: {
     type: String,
@@ -31,6 +39,23 @@ const userSchema = new mongoose.Schema({
     type: String,
     maxlength: 500
   },
+  role: {
+    type: String,
+    enum: ['user', 'moderator', 'admin'],
+    default: 'user'
+  },
+  // JWT tokens for active sessions
+  tokens: [{
+    token: {
+      type: String,
+      required: true
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+      expires: 604800 // 7 days in seconds
+    }
+  }],
   // User preferences
   preferences: {
     notifications: {
@@ -55,6 +80,24 @@ const userSchema = new mongoose.Schema({
   joinedRooms: [{
     type: String
   }],
+  // Account verification
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    select: false
+  },
+  // Password reset
+  resetPasswordToken: {
+    type: String,
+    select: false
+  },
+  resetPasswordExpires: {
+    type: Date,
+    select: false
+  },
   lastSeen: {
     type: Date,
     default: Date.now
@@ -72,5 +115,8 @@ userSchema.virtual('isOnline').get(function() {
   return this.status === 'online';
 });
 
-module.exports = mongoose.model('User', userSchema);
+// Index for faster queries
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
 
+module.exports = mongoose.model('User', userSchema);
