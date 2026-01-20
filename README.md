@@ -1,3 +1,12 @@
+<img width="500" height="600" alt="1" src="https://github.com/user-attachments/assets/dc914094-74ee-4f02-915b-47bc17fa5df0" />
+<img width="500" height="600" alt="3" src="https://github.com/user-attachments/assets/2b2ddc09-749e-4f5e-80a7-bbc3103cc10e" />
+<img width="500" height="600" alt="4" src="https://github.com/user-attachments/assets/2fc31632-8671-4513-a84d-d0ef205e2562" />
+<img width="500" height="600" alt="5" src="https://github.com/user-attachments/assets/e86690b7-bd94-4e4d-b45e-bd0124e07c32" />
+<img width="500" height="600" alt="5" src="https://github.com/user-attachments/assets/9a9d60b8-6889-4fbc-ba86-90551d780074" />
+<img width="500" height="600" alt="6" src="https://github.com/user-attachments/assets/a2bedf37-c9e6-4da3-82d8-0b05dbe8f8d0" />
+
+##details below:-
+
 # vibe. unfiltered connection.
 
 **vibe.** is a high-performance, real-time communication platform engineered for seamless interaction.  
