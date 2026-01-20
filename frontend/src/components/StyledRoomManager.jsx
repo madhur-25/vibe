@@ -35,6 +35,28 @@ export default function StyledRoomManager({ onRoomSelect }) {
     }
   };
 
+  // 🗑️ Handle Room Deletion
+  const handleDeleteRoom = async (e, roomId) => {
+    e.stopPropagation(); // Stops the card from opening when clicking delete
+    if (!window.confirm("TERMINATE FREQUENCY? This action is permanent.")) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/rooms/${roomId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        fetchRooms(); // Refresh the grid
+      } else {
+        const data = await response.json();
+        alert(data.error || "Failed to delete");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
   const filteredRooms = rooms.filter(room => 
     room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     room.description?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -146,7 +168,13 @@ export default function StyledRoomManager({ onRoomSelect }) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-10">
               {filteredRooms.map((room) => (
-                <RoomCard key={room.roomId} room={room} onSelect={onRoomSelect} />
+                <RoomCard 
+                  key={room.roomId} 
+                  room={room} 
+                  onSelect={onRoomSelect} 
+                  onDelete={handleDeleteRoom}
+                  currentUserId={user?.id}
+                />
               ))}
             </div>
           )}
@@ -164,7 +192,10 @@ export default function StyledRoomManager({ onRoomSelect }) {
 }
 
 // 🚀 UPDATED ROOM CARD (Grid Style)
-function RoomCard({ room, onSelect }) {
+function RoomCard({ room, onSelect, onDelete, currentUserId }) {
+  // Check if current user owns this room
+  const isOwner = room.creator === currentUserId;
+
   return (
     <div 
       onClick={() => room.isMember && onSelect(room)}
@@ -172,6 +203,16 @@ function RoomCard({ room, onSelect }) {
         !room.isMember ? 'opacity-40 grayscale' : ''
       }`}
     >
+      {/* 🛡️ DELETE BUTTON (Only for Owners) */}
+      {isOwner && (
+        <button
+          onClick={(e) => onDelete(e, room.roomId)}
+          className="absolute top-6 right-6 z-20 p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
+
       <div className="absolute -top-12 -right-12 w-32 h-32 bg-zinc-100/5 blur-[60px] rounded-full group-hover:bg-zinc-100/10 transition-colors"></div>
 
       <div className="flex items-start justify-between mb-8 relative z-10">
@@ -218,6 +259,8 @@ function RoomCard({ room, onSelect }) {
     </div>
   );
 }
+
+
 
 function CreateRoomModal({ onClose, onSuccess }) {
   const { token } = useAuth();
