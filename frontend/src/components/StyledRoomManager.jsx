@@ -199,142 +199,42 @@ export default function StyledRoomManager({ onRoomSelect }) {
   );
 }
 
-function RoomCard({ room, onSelect, onDelete, onLeave }) {
-  const { token } = useAuth();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL || 'https://vibe-ob16.onrender.com';
-
-  const handleDelete = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/rooms/${room.roomId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        onDelete();
-      }
-    } catch (error) {
-      console.error('Delete room error:', error);
-    }
-  };
-
-  const handleLeave = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/rooms/leave/${room.roomId}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        onLeave();
-      }
-    } catch (error) {
-      console.error('Leave room error:', error);
-    }
-  };
-
+function RoomCard({ room, onSelect }) {
   return (
-    <>
-      <div 
-        onClick={() => room.isMember && onSelect(room)}
-        className={`bg-zinc-900/50 border border-zinc-800 rounded-xl p-4 transition-all cursor-pointer group hover:bg-zinc-900 hover:border-zinc-700 ${
-          !room.isMember ? 'opacity-60 cursor-not-allowed' : ''
-        }`}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex items-center gap-2 flex-1">
-            {room.type === 'private' ? (
-              <Lock className="w-4 h-4 text-orange-500 flex-shrink-0" />
-            ) : (
-              <Globe className="w-4 h-4 text-green-500 flex-shrink-0" />
-            )}
-            <h3 className="font-bold text-zinc-100 text-sm truncate">{room.name}</h3>
-            {room.isPasswordProtected && (
-              <Key className="w-3 h-3 text-zinc-600 flex-shrink-0" />
-            )}
-          </div>
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {room.isMember && !room.isCreator && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleLeave();
-                }}
-                className="p-1.5 hover:bg-orange-900/30 rounded-lg transition"
-                title="Leave room"
-              >
-                <LogOut className="w-4 h-4 text-orange-500" />
-              </button>
-            )}
-            {room.isCreator && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowDeleteConfirm(true);
-                }}
-                className="p-1.5 hover:bg-red-900/30 rounded-lg transition"
-                title="Delete room"
-              >
-                <Trash2 className="w-4 h-4 text-red-500" />
-              </button>
-            )}
-          </div>
-        </div>
-        
-        {room.description && (
-          <p className="text-xs text-zinc-500 mb-3 line-clamp-2 font-medium">{room.description}</p>
-        )}
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-zinc-600">
-            <Users className="w-3 h-3" />
-            <span className="text-[10px] font-bold">{room.memberCount}/{room.maxMembers}</span>
-          </div>
-          {room.isMember ? (
-            <div className="flex items-center gap-1.5 bg-green-900/20 text-green-400 px-2 py-1 rounded-full border border-green-900/30">
-              <div className="w-1 h-1 bg-green-400 rounded-full"></div>
-              <span className="text-[9px] font-black uppercase tracking-wider">Joined</span>
-            </div>
+    <button 
+      onClick={() => room.isMember && onSelect(room)}
+      className={`w-full group flex items-center justify-between p-3 rounded-xl transition-all mb-1 ${
+        !room.isMember 
+          ? 'opacity-30 grayscale cursor-not-allowed' 
+          : 'hover:bg-zinc-900 border border-transparent hover:border-zinc-800'
+      }`}
+    >
+      <div className="flex items-center gap-3 overflow-hidden text-left">
+        {/* Simple Icon Box */}
+        <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center flex-shrink-0 group-hover:bg-zinc-800 transition-colors">
+          {room.type === 'private' ? (
+            <Lock className="w-3.5 h-3.5 text-orange-500/50 group-hover:text-orange-500" />
           ) : (
-            <span className="text-[9px] font-black uppercase tracking-wider text-zinc-600 px-2 py-1 bg-zinc-800/50 rounded-full border border-zinc-800">
-              Not Joined
-            </span>
+            <Hash className="w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-200" />
           )}
         </div>
-      </div>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 max-w-sm w-full">
-            <h3 className="text-xl font-bold text-zinc-100 mb-2">Delete Room?</h3>
-            <p className="text-zinc-400 text-sm mb-6">
-              All messages will be permanently deleted. This action cannot be undone.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 bg-zinc-800 text-zinc-100 rounded-xl hover:bg-zinc-700 font-bold text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  handleDelete();
-                  setShowDeleteConfirm(false);
-                }}
-                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold text-sm"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
+        {/* Room Info */}
+        <div className="overflow-hidden">
+          <p className="text-xs font-bold text-zinc-400 group-hover:text-zinc-100 truncate transition-colors">
+            {room.name}
+          </p>
+          <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-tight">
+            {room.memberCount} members
+          </p>
         </div>
-      )}
-    </>
+      </div>
+      
+      {/* Show lock icon if not a member */}
+      {!room.isMember && <Lock className="w-3 h-3 text-zinc-800" />}
+    </button>
   );
 }
-
 function CreateRoomModal({ onClose, onSuccess }) {
   const { token } = useAuth();
   const [formData, setFormData] = useState({
