@@ -349,7 +349,7 @@ function CreateRoomModal({ onClose, onSuccess }) {
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://vibe-ob16.onrender.com';
 
-  const handleSubmit = async () => {
+ const handleSubmit = async () => {
     if (!formData.name.trim()) {
       setError('Room name is required');
       return;
@@ -359,13 +359,20 @@ function CreateRoomModal({ onClose, onSuccess }) {
     setError('');
 
     try {
+      // Create a copy of the data and remove password if it's empty or just whitespace
+      const dataToSend = { ...formData };
+      if (!dataToSend.password || dataToSend.password.trim() === "") {
+        delete dataToSend.password;
+      }
+
       const response = await fetch(`${API_URL}/api/rooms/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        // Use the cleaned dataToSend object
+        body: JSON.stringify(dataToSend)
       });
 
       const data = await response.json();
@@ -373,7 +380,9 @@ function CreateRoomModal({ onClose, onSuccess }) {
       if (response.ok) {
         onSuccess();
       } else {
-        setError(data.error || 'Failed to create room');
+        // Correctly handle validation errors or generic errors from the backend
+        const errorMessage = data.errors ? data.errors[0].msg : (data.error || 'Failed to create room');
+        setError(errorMessage);
       }
     } catch (error) {
       setError('Network error. Please try again.');
