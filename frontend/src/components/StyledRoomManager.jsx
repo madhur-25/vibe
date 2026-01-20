@@ -35,7 +35,7 @@ export default function StyledRoomManager({ onRoomSelect }) {
     }
   };
 
-  // 🗑️ Handle Room Deletion
+  // Handle Room Deletion
   const handleDeleteRoom = async (e, roomId) => {
     e.stopPropagation(); // Stops the card from opening when clicking delete
     if (!window.confirm("TERMINATE FREQUENCY? This action is permanent.")) return;
@@ -191,10 +191,17 @@ export default function StyledRoomManager({ onRoomSelect }) {
   );
 }
 
-// 🚀 UPDATED ROOM CARD (Grid Style)
+//  UPDATED ROOM CARD (Grid Style)
 function RoomCard({ room, onSelect, onDelete, currentUserId }) {
-  // Check if current user owns this room
   const isOwner = room.creator === currentUserId;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyId = (e) => {
+    e.stopPropagation(); //  Stops the card from opening when clicking copy
+    navigator.clipboard.writeText(room.roomId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div 
@@ -203,7 +210,7 @@ function RoomCard({ room, onSelect, onDelete, currentUserId }) {
         !room.isMember ? 'opacity-40 grayscale' : ''
       }`}
     >
-      {/* 🛡️ DELETE BUTTON (Only for Owners) */}
+      {/*  DELETE BUTTON (Only for Owners) */}
       {isOwner && (
         <button
           onClick={(e) => onDelete(e, room.roomId)}
@@ -233,7 +240,18 @@ function RoomCard({ room, onSelect, onDelete, currentUserId }) {
         <h3 className="text-xl font-black text-white uppercase italic tracking-tighter truncate group-hover:text-zinc-100">
           {room.name}
         </h3>
-        <p className="text-zinc-500 text-xs font-medium line-clamp-2 min-h-[32px] leading-relaxed">
+
+        {/*  NEW: ROOM ID BADGE */}
+        <button 
+          onClick={handleCopyId}
+          className="flex items-center gap-2 px-3 py-1 bg-zinc-950 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-all group/id"
+        >
+          <span className="text-[9px] font-mono text-zinc-500 group-hover/id:text-zinc-300 transition-colors uppercase tracking-wider">
+            {copied ? "COPIED TO CLIPBOARD" : `ID: ${room.roomId}`}
+          </span>
+        </button>
+
+        <p className="text-zinc-500 text-xs font-medium line-clamp-2 min-h-[32px] leading-relaxed pt-2">
           {room.description || "No transmission log provided for this channel."}
         </p>
       </div>
@@ -259,8 +277,6 @@ function RoomCard({ room, onSelect, onDelete, currentUserId }) {
     </div>
   );
 }
-
-
 
 function CreateRoomModal({ onClose, onSuccess }) {
   const { token } = useAuth();
