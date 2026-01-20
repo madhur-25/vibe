@@ -12,9 +12,9 @@ const generateRoomId = () => {
   return `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 };
 
-// @route   POST /api/rooms/create
-// @desc    Create a new room
-// @access  Private
+// @route    POST /api/rooms/create
+// @desc     Create a new room
+// @access   Private
 router.post('/create', verifyToken, [
   body('name')
     .trim()
@@ -30,7 +30,7 @@ router.post('/create', verifyToken, [
     .isIn(['public', 'private'])
     .withMessage('Type must be either public or private'),
   body('password')
-    .optional()
+    .optional({ checkFalsy: true }) //skips if password is empty.....***-----
     .isLength({ min: 4 })
     .withMessage('Password must be at least 4 characters')
 ], async (req, res) => {
@@ -89,9 +89,9 @@ router.post('/create', verifyToken, [
   }
 });
 
-// @route   POST /api/rooms/join/:roomId
-// @desc    Join a room
-// @access  Private
+// @route    POST /api/rooms/join/:roomId
+// @desc     Join a room
+// @access   Private
 router.post('/join/:roomId', verifyToken, [
   body('password').optional().isString()
 ], async (req, res) => {
@@ -185,9 +185,9 @@ router.post('/join/:roomId', verifyToken, [
   }
 });
 
-// @route   POST /api/rooms/leave/:roomId
-// @desc    Leave a room
-// @access  Private
+// @route    POST /api/rooms/leave/:roomId
+// @desc     Leave a room
+// @access   Private
 router.post('/leave/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -223,9 +223,9 @@ router.post('/leave/:roomId', verifyToken, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/rooms/:roomId
-// @desc    Delete a room (creator only)
-// @access  Private
+// @route    DELETE /api/rooms/:roomId
+// @desc     Delete a room (creator only)
+// @access   Private
 router.delete('/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -259,9 +259,9 @@ router.delete('/:roomId', verifyToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/rooms
-// @desc    Get all public rooms or user's rooms
-// @access  Private
+// @route    GET /api/rooms
+// @desc     Get all public rooms or user's rooms
+// @access   Private
 router.get('/', verifyToken, async (req, res) => {
   try {
     const { type = 'all' } = req.query;
@@ -306,9 +306,9 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
-// @route   GET /api/rooms/:roomId
-// @desc    Get room details
-// @access  Private
+// @route    GET /api/rooms/:roomId
+// @desc     Get room details
+// @access   Private
 router.get('/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
@@ -353,9 +353,9 @@ router.get('/:roomId', verifyToken, async (req, res) => {
   }
 });
 
-// @route   PATCH /api/rooms/:roomId
-// @desc    Update room settings (creator/admin only)
-// @access  Private
+// @route    PATCH /api/rooms/:roomId
+// @desc     Update room settings (creator/admin only)
+// @access   Private
 router.patch('/:roomId', verifyToken, [
   body('name')
     .optional()
@@ -410,9 +410,9 @@ router.patch('/:roomId', verifyToken, [
   }
 });
 
-// @route   GET /api/rooms/:roomId/members
-// @desc    Get room members
-// @access  Private
+// @route    GET /api/rooms/:roomId/members
+// @desc     Get room members
+// @access   Private
 router.get('/:roomId/members', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
