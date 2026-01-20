@@ -1,4 +1,4 @@
-// server.js - Updated with JWT Authentication
+//  Updated with Room Management,jwt
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -13,7 +13,6 @@ require('dotenv').config();
 const app = express();
 const server = http.createServer(app);
 
-// Socket.io setup with CORS
 const io = socketIo(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -22,7 +21,6 @@ const io = socketIo(server, {
   }
 });
 
-// Middleware
 app.use(cors({
   origin: process.env.CLIENT_URL || "http://localhost:5173",
   credentials: true
@@ -30,16 +28,12 @@ app.use(cors({
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
-// Create uploads directory
 if (!fs.existsSync('./uploads')) {
   fs.mkdirSync('./uploads');
 }
 
-// File upload configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
+  destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
@@ -53,16 +47,11 @@ const upload = multer({
     const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (extname && mimetype) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Invalid file type'));
-    }
+    if (extname && mimetype) return cb(null, true);
+    cb(new Error('Invalid file type'));
   }
 });
 
-// MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp', {
   useNewUrlParser: true,
   useUnifiedTopology: true
@@ -70,35 +59,44 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/chatapp',
 .then(() => console.log('✅ MongoDB Connected'))
 .catch(err => console.error('❌ MongoDB Connection Error:', err));
 
-// Import Models
 const Message = require('./models/Message');
 const User = require('./models/User');
 const Room = require('./models/Room');
 
-// Import Routes
 const authRoutes = require('./routes/auth');
+const roomRoutes = require('./routes/room');
 const { verifyToken } = require('./middleware/auth');
 
-// Store online users
 const onlineUsers = new Map();
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/rooms', roomRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Chat server is running' });
 });
 
-// Get message history (protected)
+// Get message history for a room (protected)
 app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
   try {
     const { roomId } = req.params;
     const limit = parseInt(req.query.limit) || 50;
     
+    // Check if room exists
+    const room = await Room.findOne({ roomId });
+    if (!room) {
+      return res.status(404).json({ error: 'Invalid room ID' });
+    }
+
+    // Check if user is member
+    if (!room.isMember(req.userId)) {
+      return res.status(403).json({ error: 'You are not a member of this room' });
+    }
+    
     const messages = await Message.find({ roomId })
       .sort({ timestamp: -1 })
-      .limit(limit)
-      .populate('userId', 'username avatar');
+      .limit(limit);
     
     res.json(messages.reverse());
   } catch (error) {
@@ -106,7 +104,6 @@ app.get('/api/messages/:roomId', verifyToken, async (req, res) => {
   }
 });
 
-// File upload endpoint (protected)
 app.post('/api/upload', verifyToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -136,17 +133,13 @@ io.use(async (socket, next) => {
       return next(new Error('Authentication error: Token required'));
     }
 
-    // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Find user
     const user = await User.findOne({ userId: decoded.userId });
     
     if (!user) {
       return next(new Error('Authentication error: User not found'));
     }
 
-    // Attach user to socket
     socket.userId = user.userId;
     socket.username = user.username;
     socket.user = user;
@@ -162,29 +155,75 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   console.log(`🔌 ${socket.username} connected (${socket.id})`);
   
-  // User joins the chat
-  socket.on('join', async (data) => {
+  // Join a room
+  socket.on('joinRoom', async (data) => {
     try {
-      const { roomId = 'general' } = data;
+      const { roomId } = data;
+
+      // Verify room exists
+      const room = await Room.findOne({ roomId });
       
+      if (!room) {
+        return socket.emit('error', { 
+          message: 'Invalid room ID. This room does not exist.',
+          code: 'ROOM_NOT_FOUND'
+        });
+      }
+
+      if (room.isArchived) {
+        return socket.emit('error', { 
+          message: 'This room has been deleted.',
+          code: 'ROOM_DELETED'
+        });
+      }
+
+      // Check if user is a member
+      if (!room.isMember(socket.userId)) {
+        return socket.emit('error', { 
+          message: 'You are not a member of this room. Please join first.',
+          code: 'NOT_MEMBER'
+        });
+      }
+
+      // Leave previous room if any
+      if (socket.currentRoom) {
+        socket.leave(socket.currentRoom);
+        
+        // Remove from online users in previous room
+        const prevRoomUsers = Array.from(onlineUsers.values())
+          .filter(u => u.roomId === socket.currentRoom && u.userId !== socket.userId);
+        
+        io.to(socket.currentRoom).emit('userLeft', {
+          username: socket.username,
+          userId: socket.userId,
+          onlineUsers: prevRoomUsers.map(u => ({
+            userId: u.userId,
+            username: u.username,
+            avatar: u.avatar
+          }))
+        });
+      }
+
+      // Join new room
+      socket.join(roomId);
+      socket.currentRoom = roomId;
+
       // Update user status
       socket.user.status = 'online';
       socket.user.lastSeen = new Date();
       await socket.user.save();
-      
-      socket.roomId = roomId;
-      socket.join(roomId);
-      
-      // Add to online users
+
+      // Update online users
       onlineUsers.set(socket.userId, {
         socketId: socket.id,
         username: socket.username,
+        userId: socket.userId,
         roomId,
         avatar: socket.user.avatar,
         joinedAt: new Date()
       });
-      
-      // Get online users in room
+
+      // Get online users in this room
       const roomUsers = Array.from(onlineUsers.values())
         .filter(u => u.roomId === roomId)
         .map(u => ({
@@ -192,7 +231,11 @@ io.on('connection', (socket) => {
           username: u.username,
           avatar: u.avatar
         }));
-      
+
+      // Update room's last activity
+      room.lastActivity = new Date();
+      await room.save();
+
       // Notify room
       io.to(roomId).emit('userJoined', {
         username: socket.username,
@@ -201,19 +244,45 @@ io.on('connection', (socket) => {
         onlineUsers: roomUsers,
         timestamp: new Date()
       });
-      
-      console.log(`✅ ${socket.username} joined room: ${roomId}`);
+
+      // Send room info to user
+      socket.emit('roomJoined', {
+        roomId: room.roomId,
+        name: room.name,
+        description: room.description,
+        memberCount: room.members.length,
+        onlineUsers: roomUsers
+      });
+
+      console.log(`✅ ${socket.username} joined room: ${room.name} (${roomId})`);
     } catch (error) {
-      console.error('Error in join:', error);
-      socket.emit('error', { message: 'Failed to join chat' });
+      console.error('Error joining room:', error);
+      socket.emit('error', { 
+        message: 'Failed to join room',
+        code: 'JOIN_FAILED'
+      });
     }
   });
-  
-  // Handle messages
+
+  // Send message to room
   socket.on('message', async (data) => {
     try {
-      const { text, roomId = 'general', type = 'user' } = data;
-      
+      const { text, type = 'user' } = data;
+      const roomId = socket.currentRoom;
+
+      if (!roomId) {
+        return socket.emit('error', { message: 'You are not in any room' });
+      }
+
+      // Verify room still exists
+      const room = await Room.findOne({ roomId });
+      if (!room || room.isArchived) {
+        return socket.emit('error', { 
+          message: 'This room no longer exists',
+          code: 'ROOM_DELETED'
+        });
+      }
+
       const message = await Message.create({
         userId: socket.userId,
         username: socket.username,
@@ -222,7 +291,12 @@ io.on('connection', (socket) => {
         type,
         timestamp: new Date()
       });
-      
+
+      // Update room stats
+      room.messageCount += 1;
+      room.lastActivity = new Date();
+      await room.save();
+
       io.to(roomId).emit('message', {
         id: message._id,
         username: socket.username,
@@ -231,18 +305,32 @@ io.on('connection', (socket) => {
         type,
         timestamp: message.timestamp
       });
-      
+
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('error', { message: 'Failed to send message' });
     }
   });
-  
-  // Handle file messages
+
+  // File message
   socket.on('fileMessage', async (data) => {
     try {
-      const { fileUrl, filename, fileType, roomId = 'general' } = data;
-      
+      const { fileUrl, filename, fileType } = data;
+      const roomId = socket.currentRoom;
+
+      if (!roomId) {
+        return socket.emit('error', { message: 'You are not in any room' });
+      }
+
+      const room = await Room.findOne({ roomId });
+      if (!room || room.isArchived) {
+        return socket.emit('error', { message: 'This room no longer exists' });
+      }
+
+      if (!room.settings.allowFileUploads) {
+        return socket.emit('error', { message: 'File uploads are disabled in this room' });
+      }
+
       const message = await Message.create({
         userId: socket.userId,
         username: socket.username,
@@ -253,7 +341,11 @@ io.on('connection', (socket) => {
         fileType,
         timestamp: new Date()
       });
-      
+
+      room.messageCount += 1;
+      room.lastActivity = new Date();
+      await room.save();
+
       io.to(roomId).emit('message', {
         id: message._id,
         username: socket.username,
@@ -264,77 +356,40 @@ io.on('connection', (socket) => {
         fileType,
         timestamp: message.timestamp
       });
-      
+
     } catch (error) {
       console.error('Error sending file:', error);
       socket.emit('error', { message: 'Failed to send file' });
     }
   });
-  
-  // Handle private messages
-  socket.on('privateMessage', async (data) => {
-    try {
-      const { toUserId, text } = data;
-      
-      const message = await Message.create({
-        userId: socket.userId,
-        username: socket.username,
-        text,
-        type: 'private',
-        recipientId: toUserId,
-        timestamp: new Date()
+
+  // Typing indicator
+  socket.on('typing', () => {
+    if (socket.currentRoom) {
+      socket.to(socket.currentRoom).emit('userTyping', { 
+        username: socket.username, 
+        userId: socket.userId 
       });
-      
-      const recipient = onlineUsers.get(toUserId);
-      
-      if (recipient) {
-        io.to(recipient.socketId).emit('privateMessage', {
-          id: message._id,
-          fromUserId: socket.userId,
-          fromUsername: socket.username,
-          text,
-          timestamp: message.timestamp
-        });
-      }
-      
-      socket.emit('privateMessageSent', {
-        id: message._id,
-        toUserId,
-        text,
-        timestamp: message.timestamp
-      });
-      
-    } catch (error) {
-      console.error('Error sending private message:', error);
-      socket.emit('error', { message: 'Failed to send private message' });
     }
   });
-  
-  // Handle typing
-  socket.on('typing', (data) => {
-    const { roomId = 'general' } = data;
-    socket.to(roomId).emit('userTyping', { 
-      username: socket.username, 
-      userId: socket.userId 
-    });
-  });
-  
-  // Handle reactions
+
+  // Reaction
   socket.on('reaction', async (data) => {
     try {
-      const { messageId, emoji, roomId = 'general' } = data;
-      
+      const { messageId, emoji } = data;
+      const roomId = socket.currentRoom;
+
       const message = await Message.findById(messageId);
-      if (!message) return;
-      
+      if (!message || message.roomId !== roomId) return;
+
       if (!message.reactions) {
         message.reactions = [];
       }
-      
+
       const existingReaction = message.reactions.find(
         r => r.userId === socket.userId && r.emoji === emoji
       );
-      
+
       if (existingReaction) {
         message.reactions = message.reactions.filter(
           r => !(r.userId === socket.userId && r.emoji === emoji)
@@ -342,9 +397,9 @@ io.on('connection', (socket) => {
       } else {
         message.reactions.push({ userId: socket.userId, emoji });
       }
-      
+
       await message.save();
-      
+
       io.to(roomId).emit('reactionUpdate', {
         messageId,
         reactions: message.reactions
@@ -353,14 +408,33 @@ io.on('connection', (socket) => {
       console.error('Error handling reaction:', error);
     }
   });
-  
-  // Handle disconnect
+
+  // Room deleted event
+  socket.on('roomDeleted', async (data) => {
+    const { roomId } = data;
+    
+    // Notify all users in the room
+    io.to(roomId).emit('roomDeleted', {
+      roomId,
+      message: 'This room has been deleted by the creator'
+    });
+
+    // Force disconnect all users from this room
+    const socketsInRoom = await io.in(roomId).fetchSockets();
+    socketsInRoom.forEach(s => {
+      s.leave(roomId);
+      if (s.currentRoom === roomId) {
+        s.currentRoom = null;
+      }
+    });
+  });
+
+  // Disconnect
   socket.on('disconnect', async () => {
     try {
       if (socket.userId) {
         onlineUsers.delete(socket.userId);
-        
-        // Update user status
+
         await User.findOneAndUpdate(
           { userId: socket.userId },
           { 
@@ -368,24 +442,24 @@ io.on('connection', (socket) => {
             lastSeen: new Date() 
           }
         );
-        
-        if (socket.roomId) {
+
+        if (socket.currentRoom) {
           const roomUsers = Array.from(onlineUsers.values())
-            .filter(u => u.roomId === socket.roomId)
+            .filter(u => u.roomId === socket.currentRoom)
             .map(u => ({
               userId: u.userId,
               username: u.username,
               avatar: u.avatar
             }));
-          
-          io.to(socket.roomId).emit('userLeft', {
+
+          io.to(socket.currentRoom).emit('userLeft', {
             username: socket.username,
             userId: socket.userId,
             onlineUsers: roomUsers,
             timestamp: new Date()
           });
         }
-        
+
         console.log(`❌ ${socket.username} disconnected`);
       }
     } catch (error) {
@@ -394,16 +468,14 @@ io.on('connection', (socket) => {
   });
 });
 
-// Error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Start server
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📡 Socket.io enabled with JWT authentication`);
-  console.log(`🌐 CORS enabled for: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
+  console.log(`🏠 Room management enabled`);
 });
