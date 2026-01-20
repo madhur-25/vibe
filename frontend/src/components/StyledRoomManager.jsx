@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Plus, Lock, Users, Trash2, LogOut, Search, Hash, Globe, Key, Sparkles, ArrowRight } from 'lucide-react';
+import { Plus, Lock, Users, Trash2, LogOut, Search, Hash, Globe, Key, Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function StyledRoomManager({ onRoomSelect }) {
@@ -235,6 +234,7 @@ function RoomCard({ room, onSelect }) {
     </button>
   );
 }
+
 function CreateRoomModal({ onClose, onSuccess }) {
   const { token } = useAuth();
   const [formData, setFormData] = useState({
@@ -249,7 +249,7 @@ function CreateRoomModal({ onClose, onSuccess }) {
 
   const API_URL = import.meta.env.VITE_API_URL || 'https://vibe-ob16.onrender.com';
 
- const handleSubmit = async () => {
+  const handleSubmit = async () => {
     if (!formData.name.trim()) {
       setError('Room name is required');
       return;
@@ -271,7 +271,6 @@ function CreateRoomModal({ onClose, onSuccess }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        // Use the cleaned dataToSend object
         body: JSON.stringify(dataToSend)
       });
 
@@ -439,80 +438,81 @@ function JoinRoomModal({ onClose, onSuccess }) {
     }
   };
 
- return (
-  <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
-    <div className="bg-zinc-950/90 border border-zinc-800/50 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
-      {/* Decorative Glow */}
-      <div className="absolute -top-24 -right-24 w-48 h-48 bg-zinc-100/5 blur-[80px] rounded-full"></div>
-      
-      <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center">
-            <Key className="w-5 h-5 text-black" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-zinc-100 tracking-tighter uppercase italic">Join Room</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Enter frequency ID</p>
-          </div>
-        </div>
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in duration-300">
+      <div className="bg-zinc-950/90 border border-zinc-800/50 rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative overflow-hidden">
+        {/* Decorative Glow */}
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-zinc-100/5 blur-[80px] rounded-full"></div>
         
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 animate-in slide-in-from-top-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span className="text-[10px] uppercase tracking-widest font-black">{error}</span>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center">
+              <Key className="w-5 h-5 text-black" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black text-zinc-100 tracking-tighter uppercase italic">Join Room</h2>
+              <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Enter frequency ID</p>
+            </div>
           </div>
-        )}
-
-        <div className="space-y-6">
-          <div className="group">
-            <label className="block text-[10px] font-black text-zinc-600 mb-3 uppercase tracking-[0.2em] group-focus-within:text-zinc-400 transition-colors">
-              Access Code (Room ID)
-            </label>
-            <input
-              type="text"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              placeholder="room_xxxx_xxxx"
-              className="w-full px-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-all text-xs font-mono tracking-wider uppercase"
-            />
-          </div>
-
-          {requiresPassword && (
-            <div className="group animate-in slide-in-from-bottom-2">
-              <label className="block text-[10px] font-black text-zinc-600 mb-3 uppercase tracking-[0.2em] group-focus-within:text-zinc-400 transition-colors">
-                Security Key (Password)
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-all text-xs tracking-widest"
-              />
+          
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 animate-in slide-in-from-top-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-[10px] uppercase tracking-widest font-black">{error}</span>
             </div>
           )}
-        </div>
 
-        <div className="flex gap-3 mt-10">
-          <button
-            onClick={onClose}
-            className="flex-1 px-6 py-4 bg-zinc-900 text-zinc-500 rounded-2xl hover:bg-zinc-800 hover:text-zinc-100 transition-all font-black text-[10px] uppercase tracking-widest border border-zinc-800/50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleJoin}
-            disabled={loading}
-            className="flex-1 px-6 py-4 bg-zinc-100 text-black rounded-2xl hover:bg-white disabled:opacity-50 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-white/5 flex items-center justify-center gap-2 group"
-          >
-            {loading ? 'Validating...' : (
-              <>
-                Connect <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-              </>
+          <div className="space-y-6">
+            <div className="group">
+              <label className="block text-[10px] font-black text-zinc-600 mb-3 uppercase tracking-[0.2em] group-focus-within:text-zinc-400 transition-colors">
+                Access Code (Room ID)
+              </label>
+              <input
+                type="text"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                placeholder="room_xxxx_xxxx"
+                className="w-full px-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-all text-xs font-mono tracking-wider uppercase"
+              />
+            </div>
+
+            {requiresPassword && (
+              <div className="group animate-in slide-in-from-bottom-2">
+                <label className="block text-[10px] font-black text-zinc-600 mb-3 uppercase tracking-[0.2em] group-focus-within:text-zinc-400 transition-colors">
+                  Security Key (Password)
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-6 py-4 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-100 placeholder:text-zinc-700 focus:outline-none focus:border-zinc-600 transition-all text-xs tracking-widest"
+                />
+              </div>
             )}
-          </button>
+          </div>
+
+          <div className="flex gap-3 mt-10">
+            <button
+              onClick={onClose}
+              className="flex-1 px-6 py-4 bg-zinc-900 text-zinc-500 rounded-2xl hover:bg-zinc-800 hover:text-zinc-100 transition-all font-black text-[10px] uppercase tracking-widest border border-zinc-800/50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleJoin}
+              disabled={loading}
+              className="flex-1 px-6 py-4 bg-zinc-100 text-black rounded-2xl hover:bg-white disabled:opacity-50 transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-white/5 flex items-center justify-center gap-2 group"
+            >
+              {loading ? 'Validating...' : (
+                <>
+                  Connect <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+}
