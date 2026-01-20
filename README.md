@@ -62,20 +62,59 @@ Built using the **MERN stack** and **Socket.io**, it enables secure authenticati
 
 ---
 
-## 🏗️ System Architecture
+### 🏗️ System Architecture
 
-The application follows a **Decoupled Architecture**:
-
-- **Client (Frontend)**  
-  A React Single Page Application (SPA) responsible for UI rendering, local state management, and Socket.io connections.
-
-- **Server (Backend)**  
-  A RESTful API that handles authentication, database CRUD operations, and coordinates the Socket.io server.
-
-- **Database**  
-  A NoSQL data layer (MongoDB) for scalable storage of users and messages.
+The **vibe. protocol** is built on a **Decoupled Event-Driven Architecture**, designed to deliver **high availability**, **scalability**, and **low-latency real-time communication**.
 
 ---
+
+### 1️⃣ Client Layer (Frontend)
+
+**Architecture:**  
+- React.js Single Page Application (SPA)
+
+**Responsibilities:**  
+- Responsive UI rendering  
+- Client-side state management  
+- Full-duplex real-time communication using Socket.io  
+
+**Key Logic & Features:**  
+- Discovery Grid logic for room exploration  
+- Glassmorphism-based UI built with Tailwind CSS  
+- Optimized rendering for real-time updates  
+
+---
+
+### 2️⃣ Service Layer (Backend)
+
+**Architecture:**  
+- Node.js with Express.js RESTful API  
+
+**Security:**  
+- Stateless JWT (JSON Web Token) authentication  
+- Custom middleware for room-level access control  
+
+**Real-Time Engine:**  
+- Socket.io server managing event-driven communication  
+- Room-scoped message broadcasting mapped to virtual “frequencies”  
+
+---
+
+### 3️⃣ Data Persistence Layer (Database)
+
+**Architecture:**  
+- MongoDB (NoSQL)
+
+**Data Model:**  
+- Optimized for high-write chat workloads  
+- Stores:
+  - User profiles  
+  - Room metadata  
+  - Historical message logs  
+
+---
+
+
 
 ##  Installation & Setup
 
